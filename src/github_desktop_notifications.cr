@@ -101,7 +101,7 @@ module GithubDesktopNotifications
 
       def self.from_url url
         uri = URI.parse url
-        from_json Client.get(uri.path).body
+        from_json Client.get(uri.path.not_nil!).body
       end
     end
 
@@ -114,7 +114,7 @@ module GithubDesktopNotifications
 
       def self.from_url url
         uri = URI.parse url
-        from_json Client.get(uri.path).body
+        from_json Client.get(uri.path.not_nil!).body
       end
     end
 
@@ -196,10 +196,17 @@ module GithubDesktopNotifications
       instance.post endpoint, payload, headers
     end
 
-    def initialize user, password, @otp_token=nil
-      @client = HTTP::Client.new("api.github.com", ssl: true)
-      # @client = HTTP::Client.new("mitmproxy.dev", ssl: false)
-      @client.basic_auth user, password
+    def initialize @user, @password, @otp_token=nil
+      @client = client
+    end
+
+    # Stdlib bug:
+    # Reusing the client for another request in an SSL session is broken
+    private def client
+      client = HTTP::Client.new("api.github.com", ssl: true)
+      # client = HTTP::Client.new("mitmproxy.dev")
+      client.basic_auth @user, @password
+      client
     end
 
     def poll request : Hash(String, String) -> HTTP::Response, &block : HTTP::Response ->
@@ -228,7 +235,10 @@ module GithubDesktopNotifications
       false
     rescue e # Workaround 'Could not raise'
       puts e.message
+      puts e.backtrace.join("\n")
       Gtk.main_quit
+      false
+    ensure
       false
     end
 
@@ -236,15 +246,20 @@ module GithubDesktopNotifications
       params ||= {} of Symbol|String => String
       query_string = params.map {|key, value| "#{key}=#{CGI.escape(value.to_s)}" }.join('&')
 
-      perform("/#{endpoint}?#{query_string}") {|path|
-        @client.get(path, build_headers(headers))
+
+      perform("#{normalize_endpoint(endpoint)}?#{query_string}") {|path|
+        client.get(path, build_headers(headers))
       }
     end
 
     def post endpoint, payload, headers=nil
-      perform("/#{endpoint}") {|path|
-        @client.post(path, build_headers(headers), payload.to_json)
+      perform(normalize_endpoint(endpoint)) {|path|
+        client.post(path, build_headers(headers), payload.to_json)
       }
+    end
+
+    private def normalize_endpoint endpoint
+      endpoint.starts_with?('/') ? endpoint : "/#{endpoint}"
     end
 
     private def perform path, &request : String -> HTTP::Response
