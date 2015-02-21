@@ -1,0 +1,4 @@
+deps do
+  github "jhass/crystal-gobject"
+  # path "../crystal-gobject"
+end
