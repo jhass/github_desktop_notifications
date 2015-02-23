@@ -21,5 +21,5 @@ crystal deps
 #### Compile & run
 
 ```bash
-crystal src/github_desktio_notifications.cr
+crystal src/github_desktop_notifications.cr
 ```
