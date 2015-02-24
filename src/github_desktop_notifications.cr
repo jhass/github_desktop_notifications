@@ -13,7 +13,6 @@ lib LibC
 end
 
 module GithubDesktopNotifications
-
   class Config
     XDG_CONFIG_HOME = ENV["XDG_CONFIG_HOME"]? || File.expand_path("~/.config")
     PATH = File.join(XDG_CONFIG_HOME, "github_desktop_notifications")
@@ -142,7 +141,7 @@ module GithubDesktopNotifications
 
       def html_url
         case subject.type
-        when "Issue", "PullRequest"
+        when "Issue", "PullRequest", "Commit"
           Comment.from_url(subject.latest_comment_url).html_url
         else
           pp subject.type
@@ -201,12 +200,14 @@ module GithubDesktopNotifications
     end
 
     # Stdlib bug:
-    # Reusing the client for another request in an SSL session is broken
+    # Reusing the client for another request in an SSL session is broken,
+    # apparently
     private def client
-      client = HTTP::Client.new("api.github.com", ssl: true)
+      close
+      @client = HTTP::Client.new("api.github.com", ssl: true)
       # client = HTTP::Client.new("mitmproxy.dev")
       client.basic_auth @user, @password
-      client
+      @client = client
     end
 
     def poll request : Hash(String, String) -> HTTP::Response, &block : HTTP::Response ->
@@ -228,7 +229,7 @@ module GithubDesktopNotifications
       end
 
       GLib.timeout(response.headers["X-Poll-Interval"].to_i) do
-        # another compiler bug?
+        # another compiler bug
         run_poll(headers, request, callback) as Bool
       end
 
@@ -245,7 +246,6 @@ module GithubDesktopNotifications
     def get endpoint, params=nil, headers=nil
       params ||= {} of Symbol|String => String
       query_string = params.map {|key, value| "#{key}=#{CGI.escape(value.to_s)}" }.join('&')
-
 
       perform("#{normalize_endpoint(endpoint)}?#{query_string}") {|path|
         client.get(path, build_headers(headers))
@@ -288,8 +288,13 @@ module GithubDesktopNotifications
       end
     end
 
+    def close
+      client  = @client
+      client.close if client
+    end
+
     def finalize
-      @client.close
+      close
     end
   end
 
@@ -386,9 +391,7 @@ module GithubDesktopNotifications
         @url = notifications.first.html_url
       end
 
-      # Compiler bug: This cast missing, causes can't infer block return type in Array#map calls _elsewhere_
-      # This one is "fixed" by the no-block-free-var branch
-      notifications = notifications.map {|notification| notification.title as String }
+      notifications = notifications.map {|notification| notification.title }
 
       if active
         notifications = (notifications + notification.body.to_s.lines).uniq
