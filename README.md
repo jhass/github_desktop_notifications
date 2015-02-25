@@ -1,4 +1,4 @@
-# Github desktop notifications for Gnome
+# Github desktop notifications
 
 
 Optimized for Gnome, but should be working with any DE that supports

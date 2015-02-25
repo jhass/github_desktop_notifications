@@ -58,11 +58,18 @@ module GithubDesktopNotifications
 
     class Authorization
       json_mapping({
+        id: IdType,
+        note: {type: String, nilable: true},
+        note_url: {type: String, nilable: true},
         token: String
       })
 
       def self.create client, params
         from_json client.post("authorizations", params).body
+      end
+
+      def self.list client
+        Array(Authorization).from_json client.get("authorizations").body
       end
     end
 
@@ -204,8 +211,7 @@ module GithubDesktopNotifications
     # apparently
     private def client
       close
-      @client = HTTP::Client.new("api.github.com", ssl: true)
-      # client = HTTP::Client.new("mitmproxy.dev")
+      client = HTTP::Client.new("api.github.com", ssl: true)
       client.basic_auth @user, @password
       @client = client
     end
@@ -228,9 +234,9 @@ module GithubDesktopNotifications
         end
       end
 
-      GLib.timeout(response.headers["X-Poll-Interval"].to_i) do
-        # another compiler bug
-        run_poll(headers, request, callback) as Bool
+      timeout = {response.headers["X-Poll-Interval"]?.to_i, 30}.max
+      GLib.timeout(timeout) do
+        run_poll(headers, request, callback)
       end
 
       false
@@ -238,8 +244,6 @@ module GithubDesktopNotifications
       puts e.message
       puts e.backtrace.join("\n")
       Gtk.main_quit
-      false
-    ensure
       false
     end
 
@@ -299,13 +303,22 @@ module GithubDesktopNotifications
   end
 
   class TokenFetcher
+    NOTE = "Github desktop notifications"
+    NOTE_URL = "http://github.com/jhass/github_desktop_notifications"
+    REQUESTED_SCOPES = %w(notifications)
+
     getter user
     getter token
 
     def initialize
-      @user = prompt("Github user: ")
-      @password = password_prompt("Password: ")
+      @user, @password = read_credentials
       @token = fetch
+    end
+
+    private def read_credentials
+      user = prompt("Github user: ")
+      password = password_prompt("Password: ")
+      {user, password}
     end
 
     private def prompt prompt
@@ -322,10 +335,16 @@ module GithubDesktopNotifications
 
       @otp_token = nil
 
+      authorization = Client::Authorization.list(client).find {|authorization|
+        authorization.note_url == NOTE_URL
+      }
+
+      return authorization.token if authorization
+
       Client::Authorization.create(client, {
-        note: "Github desktop notifications",
-        note_url: "http://github.com/jhass/github_desktop_notifications",
-        scopes: %w(notifications)
+        note: NOTE,
+        note_url: NOTE_URL,
+        scopes: REQUESTED_SCOPES
       }).token
 
     rescue e : Client::Error
@@ -336,8 +355,7 @@ module GithubDesktopNotifications
       elsif 400 <= e.status_code <= 499
         puts e.message
 
-        @user = prompt("Github user: ")
-        @password = password_prompt("Passowrd: ")
+        @user, @password = read_credentials
       else
         raise e
       end
@@ -391,7 +409,10 @@ module GithubDesktopNotifications
         @url = notifications.first.html_url
       end
 
-      notifications = notifications.map {|notification| notification.title }
+      notifications = notifications.map {|notification|
+        # Revisit after compiler improvements regarding can't infer block type
+        notification.title as String
+      }
 
       if active
         notifications = (notifications + notification.body.to_s.lines).uniq
