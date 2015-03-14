@@ -403,19 +403,19 @@ module GithubDesktopNotifications
     def update notifications
       return if notifications.empty?
 
-      if active || notifications.size > 1
-        @url = NOTIFICATIONS_URL
-      else
-        @url = notifications.first.html_url
-      end
-
-      notifications = notifications.map {|notification|
+      notification_lines = notifications.map {|notification|
         # Revisit after compiler improvements regarding can't infer block type
         notification.title as String
       }
 
       if active
-        notifications = (notifications + notification.body.to_s.lines).uniq
+        notification_lines = (notification_lines + notification.body.to_s.lines).uniq
+      end
+
+      if notification_lines.size > 1
+        @url = NOTIFICATIONS_URL
+      else
+        @url = notifications.first.html_url
       end
 
       if used
@@ -423,7 +423,7 @@ module GithubDesktopNotifications
       end
 
       @active = true
-      notification.body = notifications.join("\n")
+      notification.body = notification_lines.join("\n")
       notification.show
     end
   end
