@@ -366,6 +366,7 @@ module GithubDesktopNotifications
 
   class Notification
     NOTIFICATIONS_URL = "https://github.com/notifications"
+
     getter! url
     private getter! notification
     property! active
@@ -385,7 +386,8 @@ module GithubDesktopNotifications
       @notification = Notify::Notification.build do |n|
         n.summary = "Github"
         n.urgency = :low
-        n.icon_name = File.expand_path("../res/icons/GitHub-Mark-Light-64px.png", File.dirname(__FILE__))
+        n.icon_name = icon_path
+
 
         action "show", "Show" do
           Gio::AppInfo.launch_default_for_uri this.url, nil
@@ -398,6 +400,11 @@ module GithubDesktopNotifications
         this.used = true
         this.active = false
       end
+    end
+
+    private def icon_path
+      path = File.expand_path("../res/icons/GitHub-Mark-Light-64px.png", File.dirname(__FILE__))
+      File.exists?(path) ? path : "github_desktop_notifications"
     end
 
     def update notifications
