@@ -388,9 +388,14 @@ module GithubDesktopNotifications
         n.urgency = :low
         n.icon_name = icon_path
 
+        action "default", "Show" do
+          this.launch_browser
+          # Compiler bug
+          Pointer(Void).null.value
+        end
 
         action "show", "Show" do
-          Gio::AppInfo.launch_default_for_uri this.url, nil
+          this.launch_browser
           # Compiler bug
           Pointer(Void).null.value
         end
@@ -400,6 +405,10 @@ module GithubDesktopNotifications
         this.used = true
         this.active = false
       end
+    end
+
+    def launch_browser
+      Gio::AppInfo.launch_default_for_uri url, nil
     end
 
     private def icon_path
