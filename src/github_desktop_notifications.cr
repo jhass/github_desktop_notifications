@@ -240,8 +240,11 @@ module GithubDesktopNotifications
       end
 
       false
+    rescue e : Errno # Ignore timeouts and such
+      puts "Warning: Got #{e.class}: #{e.message}"
+      true
     rescue e # Workaround 'Could not raise'
-      puts e.message
+      puts "#{e.class}: #{e.message}"
       puts e.backtrace.join("\n")
       Gtk.main_quit
       false
