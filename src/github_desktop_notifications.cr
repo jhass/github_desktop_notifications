@@ -370,21 +370,21 @@ module GithubDesktopNotifications
   class Notification
     NOTIFICATIONS_URL = "https://github.com/notifications"
 
-    getter! url
+    getter url
     private getter! notification
-    property! active
-    property! used
 
     def initialize
       @url = NOTIFICATIONS_URL
       @active = false
       @used = true
+      @shown = false
     end
 
     private def build
       this = self
       @active = false
       @used = false
+      @shown = false
 
       @notification = Notify::Notification.build do |n|
         n.summary = "Github"
@@ -405,18 +405,23 @@ module GithubDesktopNotifications
       end
 
       notification.connect "closed" do
-        this.used = true
-        this.active = false
+        this.closed
       end
     end
 
     def launch_browser
-      Gio::AppInfo.launch_default_for_uri url, nil
+      Gio::AppInfo.launch_default_for_uri url, nil unless @shown
+      @shown = true
     end
 
     private def icon_path
       path = File.expand_path("../res/icons/GitHub-Mark-Light-64px.png", File.dirname(__FILE__))
       File.exists?(path) ? path : "github_desktop_notifications"
+    end
+
+    def closed
+      @used = true
+      @active = false
     end
 
     def update notifications
@@ -427,7 +432,7 @@ module GithubDesktopNotifications
         notification.title as String
       }
 
-      if active
+      if @active
         notification_lines = (notification_lines + notification.body.to_s.lines).uniq
       end
 
@@ -437,7 +442,7 @@ module GithubDesktopNotifications
         @url = notifications.first.html_url
       end
 
-      if used
+      if @used
         build
       end
 
