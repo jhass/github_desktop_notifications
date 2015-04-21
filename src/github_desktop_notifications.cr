@@ -10,6 +10,17 @@ LibNotify.init("Github")
 
 lib LibC
   fun getpass(prompt : UInt8*) : UInt8*
+  fun gethostname(name : UInt8*, len : SizeT) : Int32
+end
+
+def gethostname
+  String.new(255) do |buffer|
+    unless LibC.gethostname(buffer, 255u64) == 0
+      raise Errno.new("Could not get hostname")
+    end
+    len = LibC.strlen(buffer)
+    {len, len}
+  end
 end
 
 module GithubDesktopNotifications
@@ -306,7 +317,7 @@ module GithubDesktopNotifications
   end
 
   class TokenFetcher
-    NOTE = "Github desktop notifications"
+    NOTE = "Github desktop notifications (%s)"
     NOTE_URL = "http://github.com/jhass/github_desktop_notifications"
     REQUESTED_SCOPES = %w(notifications)
 
@@ -314,6 +325,7 @@ module GithubDesktopNotifications
     getter token
 
     def initialize
+      @identifer = gethostname
       @user, @password = read_credentials
       @token = fetch
     end
@@ -336,18 +348,11 @@ module GithubDesktopNotifications
     private def fetch
       client = Client.new @user, @password, @otp_token
 
-      @otp_token = nil
-
-      authorization = Client::Authorization.list(client).find {|authorization|
-        authorization.note_url == NOTE_URL
-      }
-
-      return authorization.token if authorization
-
       Client::Authorization.create(client, {
-        note: NOTE,
+        note: NOTE % @identifer,
         note_url: NOTE_URL,
-        scopes: REQUESTED_SCOPES
+        scopes: REQUESTED_SCOPES,
+        fingerprint: @identifer
       }).token
 
     rescue e : Client::Error
@@ -355,6 +360,8 @@ module GithubDesktopNotifications
         puts e.message
 
         @otp_token = prompt("OTP token: ")
+      elsif e.status_code == 422
+        @identifer = next_identifier
       elsif 400 <= e.status_code <= 499
         puts e.message
 
@@ -364,6 +371,16 @@ module GithubDesktopNotifications
       end
 
       fetch
+    end
+
+    private def next_identifier
+      digit = @identifer.match /\-(\d)$/
+      if digit
+        digit = digit[1].to_i
+        @identifer.gsub(/\-\d$/, "-#{digit+1}")
+      else
+        "#{@identifer}-1"
+      end
     end
   end
 
