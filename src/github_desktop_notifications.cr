@@ -251,7 +251,7 @@ module GithubDesktopNotifications
       end
 
       false
-    rescue e : Errno # Ignore timeouts and such
+    rescue e : Errno|SocketError # Ignore timeouts, no network and such
       puts "Warning: Got #{e.class}: #{e.message}"
       true
     rescue e # Workaround 'Could not raise'
