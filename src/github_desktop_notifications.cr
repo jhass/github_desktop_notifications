@@ -135,6 +135,18 @@ module GithubDesktopNotifications
       end
     end
 
+    class Release
+      json_mapping({
+        id: IdType,
+        html_url: String
+      })
+
+      def self.from_url url
+        uri = URI.parse url
+        from_json Client.get(uri.path.not_nil!).body
+      end
+    end
+
     class Notification
       class Subject
         json_mapping({
@@ -161,6 +173,8 @@ module GithubDesktopNotifications
         case subject.type
         when "Issue", "PullRequest", "Commit"
           Comment.from_url(subject.latest_comment_url).html_url
+        when "Release"
+          Release.from_url(subject.url).html_url
         else
           pp subject.type
           raise "Not yet implemented for #{subject.type}"
