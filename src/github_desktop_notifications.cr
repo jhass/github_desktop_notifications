@@ -295,13 +295,14 @@ module GithubDesktopNotifications
 
     private def build_headers additional=nil
       HTTP::Headers{
-        "Accept"     => "application/vnd.github.v3+json",
-        "User-Agent" => "github_desktop_notifications"
+        "Accept"     => ["application/vnd.github.v3+json"],
+        "User-Agent" => ["github_desktop_notifications"]
       }.tap do |headers|
-        headers["X-GitHub-OTP"] = @otp_token if @otp_token
+        otp_token = @otp_token
+        headers["X-GitHub-OTP"] = [otp_token] if otp_token
         if additional
           additional.each do |key, value|
-            headers[key] = value
+            headers.add key, value
           end
         end
       end
