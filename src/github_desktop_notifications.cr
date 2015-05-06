@@ -266,7 +266,7 @@ module GithubDesktopNotifications
 
       false
     # Ignore timeouts, no network, unexpected responses and such
-    rescue e : Errno|SocketError|JSON::ParseException
+    rescue e : Errno|SocketError|JSON::ParseException|Error
       puts "Warning: Got #{e.class}: #{e.message}"
       true
     rescue e # Workaround 'Could not raise'
