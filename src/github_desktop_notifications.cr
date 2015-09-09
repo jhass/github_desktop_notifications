@@ -259,7 +259,7 @@ module GithubDesktopNotifications
         end
       end
 
-      timeout = {response.headers["X-Poll-Interval"]?.to_i, 30}.max
+      timeout = {(response.headers["X-Poll-Interval"]? || 0).to_i, 30}.max
       GLib.timeout(timeout) do
         run_poll(headers, request, callback)
       end
