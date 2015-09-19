@@ -24,6 +24,8 @@ def gethostname
 end
 
 module GithubDesktopNotifications
+  VERSION = "0.1.0"
+
   class Config
     XDG_CONFIG_HOME = ENV["XDG_CONFIG_HOME"]? || File.expand_path("~/.config")
     PATH = File.join(XDG_CONFIG_HOME, "github_desktop_notifications")
@@ -165,7 +167,12 @@ module GithubDesktopNotifications
 
       def self.poll opts={} of Symbol|String => String|Bool|Int32, &block : Array(Notification) ->
         Client.poll(->(headers : Hash(String, String)) { Client.get "notifications", opts, headers: headers }) do |response|
-          block.call Array(Notification).from_json(response.body)
+          begin
+            block.call Array(Notification).from_json(response.body)
+          rescue e : JSON::ParseException
+            puts "Failed to parse: #{response.body}"
+            raise e
+          end
         end
       end
 
@@ -266,7 +273,7 @@ module GithubDesktopNotifications
 
       false
     # Ignore timeouts, no network, unexpected responses and such
-    rescue e : Errno|SocketError|JSON::ParseException|Error
+    rescue e : Errno|Socket::Error|JSON::ParseException|Error
       puts "Warning: Got #{e.class}: #{e.message}"
       true
     rescue e # Workaround 'Could not raise'

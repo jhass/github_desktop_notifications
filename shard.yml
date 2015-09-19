@@ -1,0 +1,9 @@
+name: github_desktop_notifications
+authors:
+  - "Jonne Haß <me@jhass.eu>"
+description: "Libnotify based desktop notifications for Github"
+license: Apache-2.0
+dependencies:
+  gobject:
+    github: "jhass/crystal-gobject"
+    branch: "master"
