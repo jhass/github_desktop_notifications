@@ -444,7 +444,7 @@ module GithubDesktopNotifications
         end
       end
 
-      notification.connect "closed" do
+      notification.on_closed do
         this.closed
       end
     end

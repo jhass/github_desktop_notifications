@@ -1,6 +1,6 @@
 version: 1.0
 shards:
   gobject:
-    path: /home/jhass/projects/crystal-gobject
-    commit: 
+    github: jhass/crystal-gobject
+    commit: 0f9bc32e48d08729a72a61758b48da4665018536
 
