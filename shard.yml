@@ -1,4 +1,5 @@
 name: github_desktop_notifications
+version: 0.1.0
 authors:
   - "Jonne Haß <me@jhass.eu>"
 description: "Libnotify based desktop notifications for Github"
