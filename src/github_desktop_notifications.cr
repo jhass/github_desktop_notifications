@@ -1,6 +1,6 @@
 require "json"
 require "http/client"
-require "cgi"
+require "uri"
 
 require "gobject/notify"
 require "gobject/gtk"
@@ -30,7 +30,7 @@ module GithubDesktopNotifications
     XDG_CONFIG_HOME = ENV["XDG_CONFIG_HOME"]? || File.expand_path("~/.config")
     PATH = File.join(XDG_CONFIG_HOME, "github_desktop_notifications")
 
-    json_mapping({
+    JSON.mapping({
       user: String,
       token: String
     }, true)
@@ -70,7 +70,7 @@ module GithubDesktopNotifications
     end
 
     class Authorization
-      json_mapping({
+      JSON.mapping({
         id: IdType,
         note: {type: String, nilable: true},
         note_url: {type: String, nilable: true},
@@ -87,14 +87,14 @@ module GithubDesktopNotifications
     end
 
     class User
-      json_mapping({
+      JSON.mapping({
         id: IdType,
         login: String
       })
     end
 
     class Repository
-      json_mapping({
+      JSON.mapping({
         id: IdType,
         name: String,
         owner: User
@@ -102,13 +102,13 @@ module GithubDesktopNotifications
     end
 
     class Event
-      json_mapping({
+      JSON.mapping({
         event: String
       })
     end
 
     class Issue
-      json_mapping({
+      JSON.mapping({
         id: IdType,
         events_url: String
       })
@@ -125,7 +125,7 @@ module GithubDesktopNotifications
     end
 
     class Comment
-      json_mapping({
+      JSON.mapping({
         id: IdType,
         html_url: String,
         body: String
@@ -138,7 +138,7 @@ module GithubDesktopNotifications
     end
 
     class Release
-      json_mapping({
+      JSON.mapping({
         id: IdType,
         html_url: String
       })
@@ -151,7 +151,7 @@ module GithubDesktopNotifications
 
     class Notification
       class Subject
-        json_mapping({
+        JSON.mapping({
           title: String,
           url: String,
           latest_comment_url: String,
@@ -159,7 +159,7 @@ module GithubDesktopNotifications
         })
       end
 
-      json_mapping({
+      JSON.mapping({
         id: IdType,
         repository: Repository,
         subject: Subject
@@ -195,7 +195,7 @@ module GithubDesktopNotifications
 
     class Error < Exception
       class Response
-        json_mapping({
+        JSON.mapping({
           message: String
         })
       end
@@ -285,7 +285,7 @@ module GithubDesktopNotifications
 
     def get endpoint, params=nil, headers=nil
       params ||= {} of Symbol|String => String
-      query_string = params.map {|key, value| "#{key}=#{CGI.escape(value.to_s)}" }.join('&')
+      query_string = params.map {|key, value| "#{key}=#{URI.escape(value.to_s)}" }.join('&')
 
       perform("#{normalize_endpoint(endpoint)}?#{query_string}") {|path|
         client.get(path, build_headers(headers))
