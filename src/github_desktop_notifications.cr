@@ -35,16 +35,14 @@ module GithubDesktopNotifications
       token: String
     }, true)
 
-    def initialize
+    def initialize(@user, @token)
     end
 
     def self.find_or_create
       unless File.exists? PATH
         fetcher = TokenFetcher.new
 
-        config = Config.new
-        config.user = fetcher.user
-        config.token = fetcher.token
+        config = Config.new(fetcher.user, fetcher.token)
 
         File.write PATH, config.to_json
 
@@ -57,10 +55,10 @@ module GithubDesktopNotifications
 
   class Client
     class IdType
-      def self.new pull : JSON::PullParser
+      def self.from_json(pull : JSON::PullParser)
         case pull.kind
         when :string
-          pull.read_string.to_i
+          pull.read_string.to_i64
         when :int
           pull.read_int
         else
@@ -71,31 +69,31 @@ module GithubDesktopNotifications
 
     class Authorization
       JSON.mapping({
-        id: IdType,
+        id: {type: Int64, converter: IdType},
         note: {type: String, nilable: true},
         note_url: {type: String, nilable: true},
         token: String
       })
 
-      def self.create client, params
+      def self.create(client, params)
         from_json client.post("authorizations", params).body
       end
 
-      def self.list client
+      def self.list(client)
         Array(Authorization).from_json client.get("authorizations").body
       end
     end
 
     class User
       JSON.mapping({
-        id: IdType,
+        id: {type: Int64, converter: IdType},
         login: String
       })
     end
 
     class Repository
       JSON.mapping({
-        id: IdType,
+        id: {type: Int64, converter: IdType},
         name: String,
         owner: User
       })
@@ -109,7 +107,7 @@ module GithubDesktopNotifications
 
     class Issue
       JSON.mapping({
-        id: IdType,
+        id: {type: Int64, converter: IdType},
         events_url: String
       })
 
@@ -118,7 +116,7 @@ module GithubDesktopNotifications
         Array(Event).from_json Client.get(uri.path).body
       end
 
-      def self.from_url url
+      def self.from_url(url)
         uri = URI.parse url
         from_json Client.get(uri.path.not_nil!).body
       end
@@ -126,12 +124,12 @@ module GithubDesktopNotifications
 
     class Comment
       JSON.mapping({
-        id: IdType,
+        id: {type: Int64, converter: IdType},
         html_url: String,
         body: String
       })
 
-      def self.from_url url
+      def self.from_url(url)
         uri = URI.parse url
         from_json Client.get(uri.path.not_nil!).body
       end
@@ -139,11 +137,11 @@ module GithubDesktopNotifications
 
     class Release
       JSON.mapping({
-        id: IdType,
+        id: {type: Int64, converter: IdType},
         html_url: String
       })
 
-      def self.from_url url
+      def self.from_url(url)
         uri = URI.parse url
         from_json Client.get(uri.path.not_nil!).body
       end
@@ -160,12 +158,12 @@ module GithubDesktopNotifications
       end
 
       JSON.mapping({
-        id: IdType,
+        id: {type: Int64, converter: IdType},
         repository: Repository,
         subject: Subject
       })
 
-      def self.poll opts={} of Symbol|String => String|Bool|Int32, &block : Array(Notification) ->
+      def self.poll(opts={} of Symbol|String => String|Bool|Int32, &block : Array(Notification) ->)
         Client.poll(->(headers : Hash(String, String)) { Client.get "notifications", opts, headers: headers }) do |response|
           begin
             block.call Array(Notification).from_json(response.body)
@@ -203,11 +201,11 @@ module GithubDesktopNotifications
       getter headers
       getter status_code
 
-      def initialize message, @headers, @status_code
+      def initialize(message, @headers, @status_code)
         super message
       end
 
-      def self.from_response response
+      def self.from_response(response)
         new Response.from_json(response.body).message, response.headers, response.status_code
       end
     end
@@ -222,19 +220,19 @@ module GithubDesktopNotifications
     end
 
 
-    def self.poll request, &block : HTTP::Response ->
+    def self.poll(request, &block : HTTP::Client::Response ->)
       instance.poll(request, &block)
     end
 
-    def self.get endpoint, params=nil, headers=nil
+    def self.get(endpoint, params=nil, headers=nil)
       instance.get endpoint, params, headers
     end
 
-    def self.post endpoint, payload, headers=nil
+    def self.post(endpoint, payload, headers=nil)
       instance.post endpoint, payload, headers
     end
 
-    def initialize @user, @password, @otp_token=nil
+    def initialize(@user, @password, @otp_token=nil)
       @client = client
     end
 
@@ -248,14 +246,14 @@ module GithubDesktopNotifications
       @client = client
     end
 
-    def poll request : Hash(String, String) -> HTTP::Response, &block : HTTP::Response ->
+    def poll(request : Hash(String, String) -> HTTP::Client::Response, &block : HTTP::Client::Response ->)
       headers = {} of String => String
       GLib.idle_add do
         run_poll(headers, request, block)
       end
     end
 
-    def run_poll headers, request : Hash(String, String) -> HTTP::Response, callback : HTTP::Response ->
+    def run_poll(headers, request : Hash(String, String) -> HTTP::Client::Response, callback : HTTP::Client::Response ->)
       response = request.call(headers)
 
       if response.status_code == 200
@@ -283,7 +281,7 @@ module GithubDesktopNotifications
       false
     end
 
-    def get endpoint, params=nil, headers=nil
+    def get(endpoint, params=nil, headers=nil)
       params ||= {} of Symbol|String => String
       query_string = params.map {|key, value| "#{key}=#{URI.escape(value.to_s)}" }.join('&')
 
@@ -292,17 +290,17 @@ module GithubDesktopNotifications
       }
     end
 
-    def post endpoint, payload, headers=nil
+    def post(endpoint, payload, headers=nil)
       perform(normalize_endpoint(endpoint)) {|path|
         client.post(path, build_headers(headers), payload.to_json)
       }
     end
 
-    private def normalize_endpoint endpoint
+    private def normalize_endpoint(endpoint)
       endpoint.starts_with?('/') ? endpoint : "/#{endpoint}"
     end
 
-    private def perform path, &request : String -> HTTP::Response
+    private def perform(path, &request : String -> HTTP::Client::Response)
       response = request.call path
 
       if 301 <= response.status_code <= 302
@@ -314,7 +312,7 @@ module GithubDesktopNotifications
       end
     end
 
-    private def build_headers additional=nil
+    private def build_headers(additional=nil)
       HTTP::Headers{
         "Accept"     => ["application/vnd.github.v3+json"],
         "User-Agent" => ["github_desktop_notifications"]
@@ -359,12 +357,12 @@ module GithubDesktopNotifications
       {user, password}
     end
 
-    private def prompt prompt
+    private def prompt(prompt)
       print prompt
       gets.not_nil!.chomp
     end
 
-    private def password_prompt prompt
+    private def password_prompt(prompt)
       password = String.new(LibC.getpass(prompt)).chomp
     end
 
@@ -464,7 +462,7 @@ module GithubDesktopNotifications
       @active = false
     end
 
-    def update notifications
+    def update(notifications)
       return if notifications.empty?
 
       notification_lines = notifications.map {|notification|
