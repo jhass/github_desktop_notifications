@@ -13,7 +13,7 @@ lib LibC
   fun gethostname(name : UInt8*, len : SizeT) : Int32
 end
 
-def gethostname
+def gethostname : String
   String.new(255) do |buffer|
     unless LibC.gethostname(buffer, 255u64) == 0
       raise Errno.new("Could not get hostname")
@@ -198,8 +198,8 @@ module GithubDesktopNotifications
         })
       end
 
-      getter headers
-      getter status_code
+      getter headers : HTTP::Headers
+      getter status_code : Int32
 
       def initialize(message, @headers, @status_code)
         super message
@@ -232,7 +232,9 @@ module GithubDesktopNotifications
       instance.post endpoint, payload, headers
     end
 
-    def initialize(@user, @password, @otp_token=nil)
+    @client : HTTP::Client?
+
+    def initialize(@user : String, @password : String, @otp_token : String? =nil)
       @client = client
     end
 
@@ -342,8 +344,11 @@ module GithubDesktopNotifications
     NOTE_URL = "http://github.com/jhass/github_desktop_notifications"
     REQUESTED_SCOPES = %w(notifications)
 
-    getter user
-    getter token
+    getter user : String
+    getter token : String
+    @identifer : String
+    @password : String
+    @otp_token : String?
 
     def initialize
       @identifer = gethostname
@@ -409,7 +414,7 @@ module GithubDesktopNotifications
     NOTIFICATIONS_URL = "https://github.com/notifications"
 
     getter url
-    private getter! notification
+    private getter! notification : Notify::Notification?
 
     def initialize
       @url = NOTIFICATIONS_URL
