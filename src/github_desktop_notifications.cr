@@ -243,7 +243,7 @@ module GithubDesktopNotifications
     # apparently
     private def client
       close
-      client = HTTP::Client.new("api.github.com", ssl: true)
+      client = HTTP::Client.new("api.github.com", tls: true)
       client.basic_auth @user, @password
       @client = client
     end
