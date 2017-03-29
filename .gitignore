@@ -1,4 +1,4 @@
 .shards/
-libs/
+lib/
 .crystal/
-github_desktop_notifications
+bin/

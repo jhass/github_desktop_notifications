@@ -470,10 +470,7 @@ module GithubDesktopNotifications
     def update(notifications)
       return if notifications.empty?
 
-      notification_lines = notifications.map {|notification|
-        # Revisit after compiler improvements regarding can't infer block type
-        notification.title as String
-      }
+      notification_lines = notifications.map &.title
 
       if @active
         notification_lines = (notification_lines + notification.body.to_s.lines).uniq
