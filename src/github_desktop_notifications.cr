@@ -473,7 +473,7 @@ module GithubDesktopNotifications
     end
 
     def update(notifications)
-      notifications = notifications.reject &.html_url
+      notifications = notifications.select &.html_url
       return if notifications.empty?
 
       notification_lines = notifications.map &.title
