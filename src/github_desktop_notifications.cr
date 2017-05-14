@@ -152,7 +152,7 @@ module GithubDesktopNotifications
         JSON.mapping({
           title: String,
           url: String,
-          latest_comment_url: String,
+          latest_comment_url: String?,
           type: String
         })
       end
@@ -177,13 +177,17 @@ module GithubDesktopNotifications
       def html_url
         case subject.type
         when "Issue", "PullRequest", "Commit"
-          Comment.from_url(subject.latest_comment_url).html_url
+          if comment_url = subject.latest_comment_url
+            Comment.from_url(comment_url).html_url
+          end
         when "Release"
           Release.from_url(subject.url).html_url
         else
-          pp subject.type
           raise "Not yet implemented for #{subject.type}"
         end
+      rescue e : Error # ignore failing to fetch nested resources for whatever reason
+        puts "Warning: Failed to fetch subject: #{e.message}"
+        nil
       end
 
       def title
@@ -205,8 +209,9 @@ module GithubDesktopNotifications
         super message
       end
 
-      def self.from_response(response)
-        new Response.from_json(response.body).message, response.headers, response.status_code
+      def self.from_response(path, response)
+        new "While requesting #{path}: #{Response.from_json(response.body).message}",
+          response.headers, response.status_code
       end
     end
 
@@ -310,7 +315,7 @@ module GithubDesktopNotifications
       elsif 200 <= response.status_code < 400
         response
       else
-        raise Error.from_response(response)
+        raise Error.from_response(path, response)
       end
     end
 
@@ -468,6 +473,7 @@ module GithubDesktopNotifications
     end
 
     def update(notifications)
+      notifications = notifications.reject &.html_url
       return if notifications.empty?
 
       notification_lines = notifications.map &.title
@@ -479,7 +485,7 @@ module GithubDesktopNotifications
       if notification_lines.size > 1
         @url = NOTIFICATIONS_URL
       else
-        @url = notifications.first.html_url
+        @url = notifications.first.html_url.not_nil!
       end
 
       if @used
