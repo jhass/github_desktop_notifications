@@ -503,3 +503,5 @@ notification = GithubDesktopNotifications::Notification.new
 GithubDesktopNotifications::Client::Notification.poll do |notifications|
   notification.update notifications
 end
+
+Gtk.main
