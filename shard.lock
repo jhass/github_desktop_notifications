@@ -2,5 +2,5 @@ version: 1.0
 shards:
   gobject:
     github: jhass/crystal-gobject
-    commit: a2973770b0a3f247b70788a1b245b32742082ceb
+    commit: 1cd3e612d8559dba419658d5189e649ba7947a9d
 

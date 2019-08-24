@@ -51,6 +51,12 @@ module GithubDesktopNotifications
         from_json File.read(PATH)
       end
     end
+
+    def self.invalidate!
+      STDERR.puts "Expired credentials, please rerun!"
+      File.delete(PATH) if File.exists? PATH
+      exit 1
+    end
   end
 
   class Client
@@ -206,7 +212,7 @@ module GithubDesktopNotifications
       getter status_code : Int32
 
       def initialize(message, @headers, @status_code)
-        super message
+        super "Got response with code #{@status_code}: #{message}"
       end
 
       def self.from_response(path, response)
@@ -215,10 +221,12 @@ module GithubDesktopNotifications
       end
     end
 
+    OAUTH_PASSWORD = "x-oauth-basic"
+
     def self.instance
       unless @@instance
         config = GithubDesktopNotifications::Config.find_or_create
-        @@instance = GithubDesktopNotifications::Client.new config.token, "x-oauth-basic"
+        @@instance = GithubDesktopNotifications::Client.new config.token, OAUTH_PASSWORD
       end
 
       @@instance.not_nil!
@@ -315,6 +323,7 @@ module GithubDesktopNotifications
       elsif 200 <= response.status_code < 400
         response
       else
+        Config.invalidate! if @password == OAUTH_PASSWORD && response.status_code == 401
         raise Error.from_response(path, response)
       end
     end
