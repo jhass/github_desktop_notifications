@@ -2,6 +2,7 @@ require "json"
 require "http/client"
 require "uri"
 
+require "gobject/g_object/object"
 require "gobject/notify"
 require "gobject/gtk"
 require "gobject/gio"
@@ -63,9 +64,9 @@ module GithubDesktopNotifications
     class IdType
       def self.from_json(pull : JSON::PullParser)
         case pull.kind
-        when :string
+        when .string?
           pull.read_string.to_i64
-        when :int
+        when .int?
           pull.read_int
         else
           raise "Expected string or int but was #{pull.kind}"
@@ -298,7 +299,7 @@ module GithubDesktopNotifications
 
     def get(endpoint, params=nil, headers=nil)
       params ||= {} of Symbol|String => String
-      query_string = params.map {|key, value| "#{key}=#{URI.escape(value.to_s)}" }.join('&')
+      query_string = params.map {|key, value| "#{key}=#{URI.encode(value.to_s)}" }.join('&')
 
       perform("#{normalize_endpoint(endpoint)}?#{query_string}") {|path|
         client.get(path, build_headers(headers))
