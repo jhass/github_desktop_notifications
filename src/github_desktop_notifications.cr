@@ -28,7 +28,7 @@ module GithubDesktopNotifications
   VERSION = "0.1.0"
 
   class Config
-    XDG_CONFIG_HOME = ENV["XDG_CONFIG_HOME"]? || File.expand_path("~/.config")
+    XDG_CONFIG_HOME = ENV["XDG_CONFIG_HOME"]? || File.expand_path("~/.config", home: true)
     PATH = File.join(XDG_CONFIG_HOME, "github_desktop_notifications")
 
     JSON.mapping({
