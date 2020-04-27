@@ -14,10 +14,14 @@ lib LibC
   fun gethostname(name : UInt8*, len : SizeT) : Int32
 end
 
+class InfoError < Exception
+  include SystemError
+end
+
 def gethostname : String
   String.new(255) do |buffer|
     unless LibC.gethostname(buffer, 255u64) == 0
-      raise Errno.new("Could not get hostname")
+      raise InfoError.from_errno("Could not get hostname")
     end
     len = LibC.strlen(buffer)
     {len, len}
@@ -29,11 +33,11 @@ module GithubDesktopNotifications
 
   class Config
     XDG_CONFIG_HOME = ENV["XDG_CONFIG_HOME"]? || File.expand_path("~/.config", home: true)
-    PATH = File.join(XDG_CONFIG_HOME, "github_desktop_notifications")
+    PATH            = File.join(XDG_CONFIG_HOME, "github_desktop_notifications")
 
     JSON.mapping({
-      user: String,
-      token: String
+      user:  String,
+      token: String,
     }, true)
 
     def initialize(@user, @token)
@@ -76,10 +80,10 @@ module GithubDesktopNotifications
 
     class Authorization
       JSON.mapping({
-        id: {type: Int64, converter: IdType},
-        note: {type: String, nilable: true},
+        id:       {type: Int64, converter: IdType},
+        note:     {type: String, nilable: true},
         note_url: {type: String, nilable: true},
-        token: String
+        token:    String,
       })
 
       def self.create(client, params)
@@ -93,29 +97,29 @@ module GithubDesktopNotifications
 
     class User
       JSON.mapping({
-        id: {type: Int64, converter: IdType},
-        login: String
+        id:    {type: Int64, converter: IdType},
+        login: String,
       })
     end
 
     class Repository
       JSON.mapping({
-        id: {type: Int64, converter: IdType},
-        name: String,
-        owner: User
+        id:    {type: Int64, converter: IdType},
+        name:  String,
+        owner: User,
       })
     end
 
     class Event
       JSON.mapping({
-        event: String
+        event: String,
       })
     end
 
     class Issue
       JSON.mapping({
-        id: {type: Int64, converter: IdType},
-        events_url: String
+        id:         {type: Int64, converter: IdType},
+        events_url: String,
       })
 
       def events
@@ -131,9 +135,9 @@ module GithubDesktopNotifications
 
     class Comment
       JSON.mapping({
-        id: {type: Int64, converter: IdType},
+        id:       {type: Int64, converter: IdType},
         html_url: String,
-        body: String
+        body:     String,
       })
 
       def self.from_url(url)
@@ -144,8 +148,8 @@ module GithubDesktopNotifications
 
     class Release
       JSON.mapping({
-        id: {type: Int64, converter: IdType},
-        html_url: String
+        id:       {type: Int64, converter: IdType},
+        html_url: String,
       })
 
       def self.from_url(url)
@@ -157,20 +161,20 @@ module GithubDesktopNotifications
     class Notification
       class Subject
         JSON.mapping({
-          title: String,
-          url: String,
+          title:              String,
+          url:                String,
           latest_comment_url: String?,
-          type: String
+          type:               String,
         })
       end
 
       JSON.mapping({
-        id: {type: Int64, converter: IdType},
+        id:         {type: Int64, converter: IdType},
         repository: Repository,
-        subject: Subject
+        subject:    Subject,
       })
 
-      def self.poll(opts={} of Symbol|String => String|Bool|Int32, &block : Array(Notification) ->)
+      def self.poll(opts = {} of Symbol | String => String | Bool | Int32, &block : Array(Notification) ->)
         Client.poll(->(headers : Hash(String, String)) { Client.get "notifications", opts, headers: headers }) do |response|
           begin
             block.call Array(Notification).from_json(response.body)
@@ -205,7 +209,7 @@ module GithubDesktopNotifications
     class Error < Exception
       class Response
         JSON.mapping({
-          message: String
+          message: String,
         })
       end
 
@@ -233,22 +237,21 @@ module GithubDesktopNotifications
       @@instance.not_nil!
     end
 
-
     def self.poll(request, &block : HTTP::Client::Response ->)
       instance.poll(request, &block)
     end
 
-    def self.get(endpoint, params=nil, headers=nil)
+    def self.get(endpoint, params = nil, headers = nil)
       instance.get endpoint, params, headers
     end
 
-    def self.post(endpoint, payload, headers=nil)
+    def self.post(endpoint, payload, headers = nil)
       instance.post endpoint, payload, headers
     end
 
     @client : HTTP::Client?
 
-    def initialize(@user : String, @password : String, @otp_token : String? =nil)
+    def initialize(@user : String, @password : String, @otp_token : String? = nil)
       @client = client
     end
 
@@ -286,8 +289,10 @@ module GithubDesktopNotifications
       end
 
       false
-    # Ignore timeouts, no network, unexpected responses and such
-    rescue e : Errno|Socket::Error|JSON::ParseException|Error
+      # Ignore timeouts, no network, unexpected responses and such
+
+
+    rescue e : IO::Error | Socket::Error | JSON::ParseException | Error
       puts "Warning: Got #{e.class}: #{e.message}"
       true
     rescue e # Workaround 'Could not raise'
@@ -297,17 +302,17 @@ module GithubDesktopNotifications
       false
     end
 
-    def get(endpoint, params=nil, headers=nil)
-      params ||= {} of Symbol|String => String
-      query_string = params.map {|key, value| "#{key}=#{URI.encode(value.to_s)}" }.join('&')
+    def get(endpoint, params = nil, headers = nil)
+      params ||= {} of Symbol | String => String
+      query_string = params.map { |key, value| "#{key}=#{URI.encode(value.to_s)}" }.join('&')
 
-      perform("#{normalize_endpoint(endpoint)}?#{query_string}") {|path|
+      perform("#{normalize_endpoint(endpoint)}?#{query_string}") { |path|
         client.get(path, build_headers(headers))
       }
     end
 
-    def post(endpoint, payload, headers=nil)
-      perform(normalize_endpoint(endpoint)) {|path|
+    def post(endpoint, payload, headers = nil)
+      perform(normalize_endpoint(endpoint)) { |path|
         client.post(path, build_headers(headers), payload.to_json)
       }
     end
@@ -329,10 +334,10 @@ module GithubDesktopNotifications
       end
     end
 
-    private def build_headers(additional=nil)
+    private def build_headers(additional = nil)
       HTTP::Headers{
         "Accept"     => ["application/vnd.github.v3+json"],
-        "User-Agent" => ["github_desktop_notifications"]
+        "User-Agent" => ["github_desktop_notifications"],
       }.tap do |headers|
         otp_token = @otp_token
         headers["X-GitHub-OTP"] = [otp_token] if otp_token
@@ -345,7 +350,7 @@ module GithubDesktopNotifications
     end
 
     def close
-      client  = @client
+      client = @client
       client.close if client
     end
 
@@ -355,8 +360,8 @@ module GithubDesktopNotifications
   end
 
   class TokenFetcher
-    NOTE = "Github desktop notifications (%s)"
-    NOTE_URL = "http://github.com/jhass/github_desktop_notifications"
+    NOTE             = "Github desktop notifications (%s)"
+    NOTE_URL         = "http://github.com/jhass/github_desktop_notifications"
     REQUESTED_SCOPES = %w(notifications)
 
     getter user : String
@@ -390,12 +395,11 @@ module GithubDesktopNotifications
       client = Client.new @user, @password, @otp_token
 
       Client::Authorization.create(client, {
-        note: NOTE % @identifer,
-        note_url: NOTE_URL,
-        scopes: REQUESTED_SCOPES,
-        fingerprint: @identifer
+        note:        NOTE % @identifer,
+        note_url:    NOTE_URL,
+        scopes:      REQUESTED_SCOPES,
+        fingerprint: @identifer,
       }).token
-
     rescue e : Client::Error
       if e.headers["X-GitHub-OTP"]?
         puts e.message
@@ -418,7 +422,7 @@ module GithubDesktopNotifications
       digit = @identifer.match /\-(\d)$/
       if digit
         digit = digit[1].to_i
-        @identifer.gsub(/\-\d$/, "-#{digit+1}")
+        @identifer.gsub(/\-\d$/, "-#{digit + 1}")
       else
         "#{@identifer}-1"
       end
