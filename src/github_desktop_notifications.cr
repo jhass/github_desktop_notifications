@@ -2,11 +2,9 @@ require "json"
 require "http/client"
 require "uri"
 
-require "gobject/g_object/object"
 require "gobject/notify"
-require "gobject/gtk"
-require "gobject/gio"
 
+MAIN_LOOP = GLib::MainLoop.new(nil, true)
 LibNotify.init("Github")
 
 lib LibC
@@ -298,7 +296,7 @@ module GithubDesktopNotifications
     rescue e # Workaround 'Could not raise'
       puts "#{e.class}: #{e.message}"
       puts e.backtrace.join("\n")
-      Gtk.main_quit
+      MAIN_LOOP.quit
       false
     end
 
@@ -455,14 +453,10 @@ module GithubDesktopNotifications
 
         action "default", "Show" do
           this.launch_browser
-          # Compiler bug
-          Pointer(Void).null.value
         end
 
         action "show", "Show" do
           this.launch_browser
-          # Compiler bug
-          Pointer(Void).null.value
         end
       end
 
@@ -518,4 +512,4 @@ GithubDesktopNotifications::Client::Notification.poll do |notifications|
   notification.update notifications
 end
 
-Gtk.main
+MAIN_LOOP.run

@@ -10,6 +10,5 @@ targets:
     main: src/github_desktop_notifications.cr
 dependencies:
   gobject:
-    # path: "/home/jhass/projects/crystal-gobject"
     github: "jhass/crystal-gobject"
-    version: ~> 0.4.0
+    version: ~> 0.6.0
